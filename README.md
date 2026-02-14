@@ -70,36 +70,57 @@ python repo_finder.py --exclude node_modules,build,dist
 
 ## 出力例
 
-### テキスト形式（デフォルト）
+### テキスト形式（デフォルト・カラー対応）
+
+ターミナル出力はカラー表示に対応しています：
+
 ```
 検索対象: /home/user/projects
 深さ: 1
 ================================
 [未連携] /home/user/projects/my-app
   → リモート未設定
+  ⚠ 未コミットの変更あり
 
 [未連携] /home/user/projects/legacy-tool
-  → リモート: origin  https://gitlab.com/user/repo.git (fetch)
+  → リモート: https://gitlab.com/user/repo.git
 
 ================================
 検出: 2 件
 ```
 
+**カラースキーム:**
+- 見出し: 青（太字）
+- `[未連携]` ラベル: 黄色（太字）
+- パス: 白
+- 情報テキスト: シアン
+- 未コミット警告: 赤（太字）
+- 検出件数: 緑（太字）
+
 ### JSON形式
+
 ```json
 [
   {
     "path": "/home/user/projects/my-app",
     "status": "no_remote",
-    "remotes": []
+    "remotes": [],
+    "uncommitted": true
   },
   {
     "path": "/home/user/projects/legacy-tool",
     "status": "non_github",
-    "remotes": ["https://gitlab.com/user/repo.git"]
+    "remotes": ["https://gitlab.com/user/repo.git"],
+    "uncommitted": false
   }
 ]
 ```
+
+**フィールド説明:**
+- `path`: リポジトリのパス
+- `status`: `no_remote`（リモート未設定）または `non_github`（GitHub以外）
+- `remotes`: 設定されているリモートURLのリスト
+- `uncommitted`: 未コミットの変更があるかどうか（true/false）
 
 ## 検出条件
 
