@@ -1,0 +1,15 @@
+[project]
+name = "repo-finder"
+version = "0.1.0"
+description = "Find local Git repositories not linked to GitHub"
+requires-python = ">=3.8"
+dependencies = [
+    "click>=8.0.0",
+]
+
+[project.scripts]
+repo-finder = "repo_finder:main"
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
