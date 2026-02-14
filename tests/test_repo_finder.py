@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from repo_finder import (
     get_git_remotes,
     has_github_remote,
+    has_uncommitted_changes,
     scan_directory,
     format_text_output,
     format_json_output,
@@ -89,6 +90,44 @@ class TestHasGithubRemote:
         assert has_github_remote([]) is False
 
 
+class TestHasUncommittedChanges:
+    """has_uncommitted_changes関数のテスト"""
+
+    def test_has_uncommitted_changes_true(self):
+        """未コミットの変更がある場合"""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout=" M modified_file.txt\n?? untracked_file.txt\n",
+            )
+            result = has_uncommitted_changes("/tmp/test")
+
+            assert result is True
+
+    def test_has_uncommitted_changes_false(self):
+        """未コミットの変更がない場合"""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="")
+            result = has_uncommitted_changes("/tmp/test")
+
+            assert result is False
+
+    def test_has_uncommitted_changes_git_error(self):
+        """gitコマンドが失敗する場合"""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1, stdout="")
+            result = has_uncommitted_changes("/tmp/test")
+
+            assert result is False
+
+    def test_has_uncommitted_changes_exception(self):
+        """例外が発生する場合"""
+        with patch("subprocess.run", side_effect=Exception("Command failed")):
+            result = has_uncommitted_changes("/tmp/test")
+
+            assert result is False
+
+
 class TestScanDirectory:
     """scan_directory関数のテスト"""
 
@@ -111,11 +150,13 @@ class TestScanDirectory:
         git_dir.mkdir()
 
         with patch("repo_finder.get_git_remotes", return_value=[]):
-            result = scan_directory(str(temp_dir), max_depth=1)
+            with patch("repo_finder.has_uncommitted_changes", return_value=False):
+                result = scan_directory(str(temp_dir), max_depth=1)
 
         assert len(result) == 1
         assert result[0]["path"] == str(repo_dir)
         assert result[0]["status"] == "no_remote"
+        assert result[0]["uncommitted"] is False
 
     def test_scan_with_git_github_remote(self, temp_dir):
         """.gitがありGitHubリモートがある場合（除外される）"""
@@ -128,7 +169,8 @@ class TestScanDirectory:
             "repo_finder.get_git_remotes",
             return_value=["https://github.com/user/repo.git"],
         ):
-            result = scan_directory(str(temp_dir), max_depth=1)
+            with patch("repo_finder.has_uncommitted_changes", return_value=False):
+                result = scan_directory(str(temp_dir), max_depth=1)
 
         assert result == []
 
@@ -143,11 +185,13 @@ class TestScanDirectory:
             "repo_finder.get_git_remotes",
             return_value=["https://gitlab.com/user/repo.git"],
         ):
-            result = scan_directory(str(temp_dir), max_depth=1)
+            with patch("repo_finder.has_uncommitted_changes", return_value=False):
+                result = scan_directory(str(temp_dir), max_depth=1)
 
         assert len(result) == 1
         assert result[0]["status"] == "non_github"
         assert "gitlab.com" in result[0]["remotes"][0]
+        assert result[0]["uncommitted"] is False
 
     def test_scan_excludes_patterns(self, temp_dir):
         """除外パターンが機能するか"""
@@ -162,7 +206,8 @@ class TestScanDirectory:
         (normal_repo / ".git").mkdir()
 
         with patch("repo_finder.get_git_remotes", return_value=[]):
-            result = scan_directory(str(temp_dir), max_depth=1)
+            with patch("repo_finder.has_uncommitted_changes", return_value=False):
+                result = scan_directory(str(temp_dir), max_depth=1)
 
         assert len(result) == 1
         assert "node_modules" not in result[0]["path"]
@@ -177,13 +222,14 @@ class TestScanDirectory:
         (level2 / ".git").mkdir()
 
         with patch("repo_finder.get_git_remotes", return_value=[]):
-            # 深さ1では検出されない
-            result_depth1 = scan_directory(str(temp_dir), max_depth=1)
-            assert len(result_depth1) == 0
+            with patch("repo_finder.has_uncommitted_changes", return_value=False):
+                # 深さ1では検出されない
+                result_depth1 = scan_directory(str(temp_dir), max_depth=1)
+                assert len(result_depth1) == 0
 
-            # 深さ2で検出される
-            result_depth2 = scan_directory(str(temp_dir), max_depth=2)
-            assert len(result_depth2) == 1
+                # 深さ2で検出される
+                result_depth2 = scan_directory(str(temp_dir), max_depth=2)
+                assert len(result_depth2) == 1
 
 
 class TestFormatOutput:
@@ -197,11 +243,17 @@ class TestFormatOutput:
     def test_format_text_output_with_results(self):
         """結果がある場合のテキスト形式"""
         data = [
-            {"path": "/home/user/repo1", "status": "no_remote", "remotes": []},
+            {
+                "path": "/home/user/repo1",
+                "status": "no_remote",
+                "remotes": [],
+                "uncommitted": False,
+            },
             {
                 "path": "/home/user/repo2",
                 "status": "non_github",
                 "remotes": ["https://gitlab.com/user/repo.git"],
+                "uncommitted": True,
             },
         ]
         result = format_text_output(data)
@@ -211,16 +263,25 @@ class TestFormatOutput:
         assert "リモート未設定" in result
         assert "gitlab.com" in result
         assert "検出: 2 件" in result
+        assert "未コミットの変更あり" in result
 
     def test_format_json_output(self):
         """JSON形式での出力"""
-        data = [{"path": "/home/user/repo", "status": "no_remote", "remotes": []}]
+        data = [
+            {
+                "path": "/home/user/repo",
+                "status": "no_remote",
+                "remotes": [],
+                "uncommitted": True,
+            }
+        ]
         result = format_json_output(data)
 
         parsed = json.loads(result)
         assert len(parsed) == 1
         assert parsed[0]["path"] == "/home/user/repo"
         assert parsed[0]["status"] == "no_remote"
+        assert parsed[0]["uncommitted"] is True
 
 
 class TestCLI:
