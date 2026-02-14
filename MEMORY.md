@@ -1,78 +1,43 @@
-# repo-finder MEMORY
+# repo-finder (AI用圧縮版)
 
-## プロジェクト概要
-GitHubに未連携のローカルGitリポジトリを検出するCLIツール
+## TL;DR
+GitHub未連携ローカルGitリポジトリ検出CLI。Python+Click。20テスト通過。
 
-## 重要なファイル
-- `repo_finder.py` - メインスクリプト（エントリーポイント）
-- `pyproject.toml` - プロジェクト設定と依存関係
-- `README.md` - 仕様書と使い方
-- `tests/test_repo_finder.py` - テストスイート（20個のテスト）
-- `.gitignore` - venvとキャッシュファイルを除外
-
-## 技術スタック
-- Python 3.8+
-- Click 8.0.0+ (CLIフレームワーク)
-- pytest (テスト)
-
-## 主要機能
-1. 指定パス直下のディレクトリをスキャン（デフォルト深さ1）
-2. `.git`ディレクトリを持つリポジトリを検出
-3. GitHubリモートがないものをリストアップ
-4. テキスト/JSON出力形式対応
-
-## インストール方法
+## コマンド
 ```bash
-pip3 install repo-finder
-# または
-pip3 install git+https://github.com/kazuhiko-hotta/repo-finder.git
+pip3 install repo-finder                    # インストール
+repo-finder /path/to/search --depth 1       # 実行
+pytest                                      # テスト
 ```
 
-## 使い方
-```bash
-repo-finder /path/to/search          # 基本使用
-repo-finder --depth 2                # 深さ変更
-repo-finder --format json            # JSON出力
-repo-finder --exclude node_modules   # 除外パターン
+## 依存
+- click>=8.0.0
+- pytest>=7.0.0 (dev)
+
+## ファイル構成
+```
+repo_finder.py      # メイン（CLIエントリポイント）
+pyproject.toml      # 設定
+README.md           # ユーザードキュメント
+MEMORY.md           # このファイル
+tests/              # 20個のpytestテスト
+.venv/              # 仮想環境（.gitignore）
 ```
 
-## GitHubリポジトリ
+## 主要関数
+- `scan_directory(path, depth, exclude)` → 未連携リポジトリ検出
+- `get_git_remotes(path)` → git remote結果取得
+- `has_github_remote(remotes)` → GitHub URL判定
+- `main()` → Click CLI
+
+## 検出ロジック
+```python
+if .git exists and not has_github_remote(get_git_remotes(path)):
+    report_repo(path, status="no_remote|non_github")
+```
+
+## GitHub
 https://github.com/kazuhiko-hotta/repo-finder
 
-## 開発メモ
-- venvを使用: `source .venv/bin/activate`
-- テスト実行: `pytest`
-- 全20個のテストが通過済み
-
-## 依存関係
-```toml
-[project]
-dependencies = ["click>=8.0.0"]
-
-[project.optional-dependencies]
-dev = ["pytest>=7.0.0", "pytest-cov>=4.0.0"]
-```
-
-## 除外パターン（デフォルト）
-- node_modules
-- .venv
-- __pycache__
-- .idea
-- .git
-
-## 検出条件
-1. `.git`ディレクトリが存在
-2. 以下のいずれか:
-   - Gitリモート未設定
-   - GitリモートがGitHub以外（GitLab, Bitbucket等）
-
-## 出力形式
-- **テキスト**: 人間が読みやすい形式（デフォルト）
-- **JSON**: 他ツール連携用
-
-## 今後の拡張案（メモ）
-- [ ] GitHub ActionsでのCI/CD
-- [ ] PyPIへの自動公開
-- [ ] 設定ファイル対応
-- [ ] 並列処理による高速化
-- [ ] インタラクティブモード
+## 拡張案
+CI/CD、PyPI自動公開、並列処理、設定ファイル
