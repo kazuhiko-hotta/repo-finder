@@ -44,6 +44,24 @@ def has_github_remote(remotes: List[str]) -> bool:
     return False
 
 
+def has_uncommitted_changes(repo_path: str) -> bool:
+    """リポジトリに未コミットの変更があるかチェック"""
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return False
+        # --porcelainは変更がある場合に空でない出力を返す
+        return bool(result.stdout.strip())
+    except Exception:
+        return False
+
+
 def scan_directory(
     target_path: str, max_depth: int = 1, exclude_patterns: Optional[List[str]] = None
 ) -> List[Dict[str, Any]]:
@@ -92,6 +110,7 @@ def scan_directory(
                     git_dir = item / ".git"
                     if git_dir.exists() and git_dir.is_dir():
                         remotes = get_git_remotes(str(item))
+                        uncommitted = has_uncommitted_changes(str(item))
 
                         if not remotes:
                             results.append(
@@ -99,6 +118,7 @@ def scan_directory(
                                     "path": str(item),
                                     "status": "no_remote",
                                     "remotes": [],
+                                    "uncommitted": uncommitted,
                                 }
                             )
                         elif not has_github_remote(remotes):
@@ -107,6 +127,7 @@ def scan_directory(
                                     "path": str(item),
                                     "status": "non_github",
                                     "remotes": remotes,
+                                    "uncommitted": uncommitted,
                                 }
                             )
                 else:
@@ -134,6 +155,11 @@ def format_text_output(results: List[Dict[str, Any]]) -> str:
             lines.append("  → リモート未設定")
         else:
             lines.append(f"  → リモート: {', '.join(repo['remotes'])}")
+
+        # 未コミットの変更がある場合は表示
+        if repo.get("uncommitted"):
+            lines.append("  ⚠ 未コミットの変更あり")
+
         lines.append("")
 
     lines.append("=" * 48)
