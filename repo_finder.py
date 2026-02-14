@@ -12,6 +12,11 @@ from typing import List, Dict, Any, Optional
 import click
 
 
+def styled(text: str, color: str = "white", bold: bool = False) -> str:
+    """テキストに色とスタイルを適用するヘルパー関数"""
+    return click.style(text, fg=color, bold=bold)
+
+
 def get_git_remotes(repo_path: str) -> List[str]:
     """リポジトリのGitリモートURL一覧を取得"""
     try:
@@ -141,29 +146,37 @@ def scan_directory(
 
 
 def format_text_output(results: List[Dict[str, Any]]) -> str:
-    """結果をテキスト形式でフォーマット"""
+    """結果をテキスト形式でフォーマット（カラー対応）"""
     if not results:
-        return "未連携のリポジトリは見つかりませんでした。"
+        return styled("未連携のリポジトリは見つかりませんでした。", "bright_black")
 
     lines = []
-    lines.append("=" * 48)
+    lines.append(styled("=" * 48, "bright_black"))
 
     for repo in results:
-        lines.append(f"[未連携] {repo['path']}")
+        # [未連携] ラベル（黄色 + 太字）
+        lines.append(
+            f"{styled('[未連携]', 'bright_yellow', bold=True)} {styled(repo['path'], 'bright_white')}"
+        )
 
         if repo["status"] == "no_remote":
-            lines.append("  → リモート未設定")
+            lines.append(f"  {styled('→', 'cyan')} {styled('リモート未設定', 'cyan')}")
         else:
-            lines.append(f"  → リモート: {', '.join(repo['remotes'])}")
+            remotes_str = ", ".join(repo["remotes"])
+            lines.append(
+                f"  {styled('→', 'cyan')} {styled('リモート:', 'cyan')} {styled(remotes_str, 'bright_cyan')}"
+            )
 
-        # 未コミットの変更がある場合は表示
+        # 未コミットの変更がある場合は表示（赤 + 太字）
         if repo.get("uncommitted"):
-            lines.append("  ⚠ 未コミットの変更あり")
+            lines.append(
+                f"  {styled('⚠ 未コミットの変更あり', 'bright_red', bold=True)}"
+            )
 
         lines.append("")
 
-    lines.append("=" * 48)
-    lines.append(f"検出: {len(results)} 件")
+    lines.append(styled("=" * 48, "bright_black"))
+    lines.append(styled(f"検出: {len(results)} 件", "bright_green", bold=True))
 
     return "\n".join(lines)
 
@@ -204,8 +217,12 @@ def main(path: str, depth: int, exclude: str, output_format: str):
     """
     exclude_patterns = [p.strip() for p in exclude.split(",") if p.strip()]
 
-    click.echo(f"検索対象: {path}")
-    click.echo(f"深さ: {depth}")
+    click.echo(
+        f"{styled('検索対象:', 'bright_blue', bold=True)} {styled(path, 'bright_white')}"
+    )
+    click.echo(
+        f"{styled('深さ:', 'bright_blue', bold=True)} {styled(str(depth), 'bright_white')}"
+    )
     click.echo("")
 
     results = scan_directory(path, depth, exclude_patterns)
