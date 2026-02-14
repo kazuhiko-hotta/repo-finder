@@ -147,7 +147,7 @@ def format_json_output(results: List[Dict[str, Any]]) -> str:
     return json.dumps(results, indent=2, ensure_ascii=False)
 
 
-@click.command()
+@click.command(no_args_is_help=True)
 @click.argument("path", default=".", type=click.Path(exists=True, file_okay=False))
 @click.option(
     "--depth",
