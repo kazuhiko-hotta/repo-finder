@@ -9,13 +9,21 @@
 
 ## インストール
 
-### 方法1: pipで直接インストール
+### 方法1: pipで直接インストール（推奨）
 
 ```bash
-pip3 install click
+pip3 install repo-finder
 ```
 
-### 方法2: pyproject.tomlからインストール（推奨）
+PyPIから最新版をインストールできます。
+
+### 方法2: GitHubからインストール
+
+```bash
+pip3 install git+https://github.com/kazuhiko-hotta/repo-finder.git
+```
+
+### 方法3: ローカルで開発・実行
 
 ```bash
 cd repo_finder
